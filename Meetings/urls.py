@@ -13,9 +13,24 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
-from django.urls import path
+from django.conf.urls import include, url
+from patterns import patterns
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
-]
+from meetingsApp import views
+from django.contrib import admin
+
+admin.autodiscover()
+
+urlpatterns = patterns(
+    url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
+    url(r'^admin/', include(admin.site.urls)),
+    url(r'^$', views.index),
+    url(r'^regist/$', views.regist),
+    url(r'^login/$', views.login),
+    url(r'^logout/$', views.logout),
+    url(r'^cancel/$', views.cancel),
+    url(r'^myorder/$', views.myorder),
+    url(r'^viewroom/$', views.viewroom),
+    url(r'^detail/$', views.detail),
+    url(r'^order/$', views.order),
+)
