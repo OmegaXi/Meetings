@@ -5,9 +5,8 @@ from django.http import HttpResponseRedirect
 from django.contrib.auth.models import User  # django 自带后台管理模块
 from django.contrib import auth
 
-
 # 主页
-from meetingsApp.models import MyUser
+from meetingsApp.models import MyUser, Order, ConfeRoom, Detail
 
 
 def index(req):
@@ -63,3 +62,114 @@ def login(req):
 def logout(req):
     auth.logout(req)
     return HttpResponseRedirect('/')
+
+
+# 获取学院列表
+def get_acad_list():
+    room_list = ConfeRoom.objects.all()  # 对数据库的操作
+    acad_list = set()
+    for room in room_list:
+        acad_list.add(room.acad)
+    return list(acad_list)
+
+
+# 查看会议室
+def viewroom(req):
+    username = req.session.get('username', '')
+    if username != '':
+        user = MyUser.objects.get(user__username=username)
+    else:
+        user = ''
+    acad_list = get_acad_list()
+    room_acad = req.GET.get("acad", "all")  # 从前台点击选择学院，
+    if room_acad not in acad_list:  # 如果没有就全部显示
+        room_acad = "all"
+        room_list = ConfeRoom.objects.all()
+    else:
+        room_list = ConfeRoom.objects.filter(acad=room_acad)  # 只显示选定学院的会议室
+    content = {"active_menu": 'viewroom', "acad_list": acad_list, "room_acad": room_acad, "room_list": room_list,
+               "user": user}
+    return render_to_response('viewroom.html', content, context_instance=RequestContext(req))
+
+
+# 会议室详情
+def detail(req):
+    username = req.session.get('username', '')
+    if username != '':
+        user = MyUser.objects.get(user__username=username)
+    else:
+        user = ''
+    Id = req.GET.get("id", "")  # 获得会议室主键ID号
+    req.session["id"] = Id
+    if Id == "":
+        return HttpResponseRedirect('/viewroom/')
+    try:
+        room = ConfeRoom.objects.get(pk=Id)  # 根据ID显示详细信息
+        ro = Detail.objects.get(pk=Id)
+    except:
+        return HttpResponseRedirect('/viewroom/')
+    img_list = Detail.objects.filter(room=room)
+    num_list = get_order_list()
+    if room.num not in num_list:  # 判断是否被预定，给定状态，给前台显示是否可以预定
+        or_sta = "yes"
+    else:
+        or_sta = "no"
+    content = {"active_menu": "viewroom", "room": room, "img_list": img_list, "ro": ro, "or_sta": or_sta, "user": user}
+    return render_to_response('detail.html', content)
+
+
+# 预定
+# 获取预定列表
+def get_order_list():
+    num_list = set()
+    order_list = Order.objects.all()
+    for order in order_list:
+        num_list.add(order.num)
+    return list(num_list)
+
+
+def order(req):
+    username = req.session.get('username', '')
+    if username != '':
+        user = MyUser.objects.get(user__username=username)
+    else:
+        user = ''
+    roid = req.session.get("id", "")  # 预定，将数据保存到数据库
+    room = ConfeRoom.objects.get(pk=roid)
+    time = Detail.objects.get(name=room.name)
+    u = MyUser.objects.get(user__username=username)
+    order = Order(user=username, num=room.num, name=room.name, time=time.time, size=room.size, phone=u.phone)
+    order.save()
+    return render_to_response("index2.html", {"user": user}, context_instance=RequestContext(req))
+
+
+# 查看预定信息
+def myorder(req):
+    username = req.session.get('username', '')
+    if username != '':
+        user = MyUser.objects.get(user__username=username)
+    else:
+        user = ''
+    try:
+        my_order = Order.objects.all()  # 索引数据库查看已预订信息
+        us_sta = "no"
+        return render_to_response("myorder.html", {"myorder": my_order, "us_sta": us_sta, "user": user},
+                                  context_instance=RequestContext(req))
+
+    except:
+        us_sta = "yes"
+        return render_to_response("myorder.html", {"us_sta": us_sta, "user": user},
+                                  context_instance=RequestContext(req))
+
+
+# 取消预定
+def cancel(req):
+    username = req.session.get('username', '')
+    if username != '':
+        user = MyUser.objects.get(user__username=username)
+    else:
+        user = ''
+    Id = req.GET.get("id", "")  # 取消预订，删除数据
+    room = Order.objects.get(pk=Id)
+    room.delete()
+    return render_to_response("index.html", context_instance=RequestContext(req))
